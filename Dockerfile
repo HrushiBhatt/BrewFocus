@@ -5,7 +5,7 @@
 # Dependabot proposes new digests weekly (.github/dependabot.yml).
 
 # 1. Build the React frontend.
-FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS web
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS web
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
@@ -14,7 +14,7 @@ RUN npm run build
 
 # 2. Build the Spring Boot jar. Dependencies are fetched in their own layer, so a code change
 # doesn't download them again.
-FROM eclipse-temurin:21-jdk-noble@sha256:06c1f157dacf6b68198bd9a4186dd4c34ef24e65d7bbbe2a0cf8e62571ad38c9 AS api
+FROM eclipse-temurin:25-jdk-noble@sha256:80f67fb3d6f76e2d817d98a4cc2a9cf05f054d4e6adc5e2144bde671d722e63f AS api
 WORKDIR /api
 COPY backend/mvnw backend/pom.xml ./
 COPY backend/.mvn .mvn
