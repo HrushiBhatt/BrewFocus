@@ -1,0 +1,4 @@
+# The production profile (SPRING_PROFILES_ACTIVE=prod, set by the Docker image).
+brewfocus:
+  # Refuse to start without a strong JWT_SECRET: a guessable key lets anyone forge a session.
+  require-secret: true

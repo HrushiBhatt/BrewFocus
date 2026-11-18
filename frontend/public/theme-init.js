@@ -1,11 +1,11 @@
-// Sets the theme before the first paint, so a light page never flashes dark. It's a file
-// because the Content-Security-Policy allows no inline scripts. core/theme/theme.ts takes over
-// once the app loads, so keep the storage key and the colors in step with it.
+// Sets the theme before the first paint, so a light page never flashes dark. It's a file because the
+// page's security policy allows no inline scripts. src/state/theme.js takes over once the app loads,
+// so keep the storage key and the colors in step with it.
 (function () {
   var choice = null;
   try {
     choice = JSON.parse(localStorage.getItem('brew:theme'));
-  } catch (e) {
+  } catch {
     // Blocked or corrupt storage: stay dark.
   }
   var light = choice === 'light';

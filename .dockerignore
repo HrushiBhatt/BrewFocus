@@ -1,8 +1,10 @@
 .git
 **/node_modules
 frontend/dist
-frontend/.angular
-backend/bin
+frontend/test-results
+frontend/playwright-report
+frontend/blob-report
+backend/target
 **/*.db
 .env
 .env.*

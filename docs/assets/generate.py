@@ -13,39 +13,40 @@ from xml.sax.saxutils import escape
 OUT = Path(__file__).parent
 
 # ---- measured numbers: refresh these from a real run, never by hand-waving ----------------------
-# Lines of code, tests included: Go, then TypeScript/HTML/CSS. Counted from git at 0646732, and
-# from the files on disk for today.
+# Lines of code, tests included: the backend, then the frontend. The first row was counted from git
+# at 0646732, the second at beec731 (the last Go and Angular commit), and the last from the files on
+# disk for today: Java, SQL and YAML; JavaScript, JSX and CSS.
 CODE = [
     ("With calendar and Claude", 14732, 13089),
-    ("Now", None, None),
+    ("Go and Angular", 3851, 6135),
+    ("Spring Boot and React", None, None),
 ]
-# In kB. The first and last two are `ng build`'s own transfer estimates. Fonts are the six .woff2
-# files, and a browser fetches only the weights in use.
+# In kB, gzipped, from `vite build`'s own report. The first load is the main bundle and the shared
+# styles; a page's figure is its own chunks. Fonts are the six .woff2 files, and a browser fetches
+# only the weights in use.
 SIZES = [
-    ("First load: app and Angular", 103.11),
-    ("Fonts, at most", 81.23),
-    ("Brew page", 6.48),
-    ("Progress page, when opened", 4.15),
+    ("First load: app and React", 97.93),
+    ("Fonts, at most", 82.23),
+    ("Brew page", 7.29),
+    ("Progress page, when opened", 3.33),
 ]
-# From BenchmarkRunningTimers on an Apple M2, in MB, each timer's in-memory database row included.
-MEMORY = [("100 timers", 1.0), ("1,000 timers", 5.7), ("10,000 timers", 55.1)]
-KB_PER_TIMER = 5.6  # at 10,000 timers
-BINARY_MB = 26.7  # go build -trimpath -ldflags="-s -w", as the Dockerfile does, here for macOS on ARM
-GO_TESTS = 50
-UNIT_TESTS = 35
-BROWSER_TESTS = 4 + 15  # against the Go server, then against the Pages build
+JAR_MB = 43.2  # target/brew-focus.jar: Spring Boot, Tomcat, the SQLite driver and the app, in one file
+BACKEND_TESTS = 70 + 42  # unit tests, then integration tests against the running app
+UNIT_TESTS = 55
+BROWSER_TESTS = 5 + 15  # against the Spring Boot server, then against the Pages build
 WEB_TESTS = UNIT_TESTS + BROWSER_TESTS
 
 
 def lines_now(folder, suffixes):
     """Today's code, counted the same way as the commit above."""
     root = OUT.parent.parent / folder
-    skip = {"node_modules", "dist", ".angular", "test-results"}
+    skip = {"node_modules", "dist", "target", "test-results", "playwright-report"}
     files = [f for f in root.rglob("*") if f.suffix in suffixes and not skip & set(f.parts)]
     return sum(f.read_bytes().count(b"\n") for f in files)
 
 
-CODE[1] = ("Now", lines_now("backend", (".go",)), lines_now("frontend/src", (".ts", ".html", ".css")) + lines_now("frontend/e2e", (".ts",)) + lines_now("frontend/e2e-pages", (".ts", ".mjs")))
+CODE[2] = ("Spring Boot and React", lines_now("backend/src", (".java", ".sql", ".yml")),
+           lines_now("frontend/src", (".js", ".jsx", ".css")) + lines_now("frontend/e2e", (".js",)) + lines_now("frontend/e2e-pages", (".js", ".mjs")))
 
 # ---- the app's colors ----------------------------------------------------------------------------
 BG, SURFACE, SURFACE3 = "#000000", "#111111", "#1a1a1a"
@@ -207,8 +208,8 @@ def hero():
     segments = "".join(f'<rect x="{390 + i * 22}" y="212" width="18" height="10"/>' for i in range(24))
     body = (mug(60, 22, 1.15, coffee) + steam
             + pixel_text("BREW", 390, 62, 8, TEXT) + pixel_text("FOCUS", 620, 62, 8, ACCENT)
-            + label("A pomodoro timer and tracker, with a Go backend.", 390, 158, 22, TEXT)
-            + label("A goroutine per timer. JWT sign-in. One Docker image.", 390, 188, 16, TEXT3)
+            + label("A pomodoro timer and tracker, with a Spring Boot backend.", 390, 158, 22, TEXT)
+            + label("Timers run on the server. JWT and OAuth 2.0 sign-in. One Docker image.", 390, 188, 16, TEXT3)
             + f'<clipPath id="segs">{segments}</clipPath>'
             + f'<g clip-path="url(#segs)"><rect x="390" y="212" width="524" height="10" fill="{LINE}"/>'
               f'<rect class="bar" x="390" y="212" width="524" height="10" fill="{ACCENT}"/></g>')
@@ -296,19 +297,19 @@ def chart_code():
     x0, width, top, rowh, thick = 250, 610, 84, 50, 24
     biggest = max(g + w for _, g, w in CODE)
     body = (label("Lines of code, tests included", 24, 32, 18, TEXT, "start", 600)
-            + f'<rect x="24" y="48" width="14" height="14" fill="{MUTED}"/>' + label("Go", 44, 60, 14, TEXT2)
-            + f'<rect x="84" y="48" width="14" height="14" fill="{ACCENT}"/>' + label("TypeScript, HTML, CSS", 104, 60, 14, TEXT2))
-    for i, (name, go, web) in enumerate(CODE):
+            + f'<rect x="24" y="48" width="14" height="14" fill="{MUTED}"/>' + label("Backend", 44, 60, 14, TEXT2)
+            + f'<rect x="124" y="48" width="14" height="14" fill="{ACCENT}"/>' + label("Frontend", 144, 60, 14, TEXT2))
+    for i, (name, back, front) in enumerate(CODE):
         y = top + i * rowh
-        wg, ww = go / biggest * width, web / biggest * width
-        gap = 2 if go else 0
+        wg, ww = back / biggest * width, front / biggest * width
+        gap = 2 if back else 0
         body += label(name, x0 - 14, y + 17, 14, TEXT if i == len(CODE) - 1 else TEXT2, "end", 600 if i == len(CODE) - 1 else 400)
         body += f'<g class="grow" style="animation-delay:{i * 0.15}s">'
-        if go:
+        if back:
             body += f'<rect x="{x0}" y="{y}" width="{wg - gap:.1f}" height="{thick}" fill="{MUTED}"/>'
         body += f'<rect x="{x0 + wg:.1f}" y="{y}" width="{ww:.1f}" height="{thick}" fill="{ACCENT}"/></g>'
-        body += label(f"{go + web:,}", x0 + wg + ww + 10, y + 17, 14, TEXT, "start", 600)
-    write("chart-code.svg", 1000, 194, f"Lines of code: {sum(CODE[0][1:]):,} with calendar and Claude, {sum(CODE[1][1:]):,} now, of which {CODE[1][1]:,} are Go", css, body)
+        body += label(f"{back + front:,}", x0 + wg + ww + 10, y + 17, 14, TEXT, "start", 600)
+    write("chart-code.svg", 1000, 244, f"Lines of code, tests included: {sum(CODE[0][1:]):,} with calendar and Claude, {sum(CODE[1][1:]):,} in Go and Angular, and {sum(CODE[2][1:]):,} in Spring Boot and React, of which {CODE[2][1]:,} are the backend", css, body)
 
 
 def architecture():
@@ -323,13 +324,13 @@ def architecture():
         panel(30, 36, 200, 84, LINE, BG) + pixel_text("GITHUB PAGES", 130, 52, 2, MUTED, "middle")
         + label("same screens, saved", 130, 88, 13, TEXT3, "middle") + label("in the browser", 130, 106, 13, TEXT3, "middle")
         + flow(120, 124, 120, 186, MUTED)
-        + box(30, 190, 180, 100, "ANGULAR", "screens and signals")
+        + box(30, 190, 180, 100, "REACT", "screens and stores")
         + f'<rect x="290" y="70" width="695" height="320" fill="none" stroke="{ACCENT}" stroke-width="3" stroke-dasharray="12 8"/>'
-        + pixel_text("ONE GO PROCESS", 306, 82, 2, ACCENT)
-        + box(320, 118, 180, 240, "GIN", "routes, middleware", ACCENT, ACCENT2)
-        + box(570, 118, 180, 84, "AUTH", "JWT, bcrypt")
-        + box(570, 274, 180, 84, "ENGINE", "a goroutine per timer")
-        + box(800, 118, 165, 84, "SQLITE", "through GORM")
+        + pixel_text("ONE SPRING BOOT PROCESS", 306, 82, 2, ACCENT)
+        + box(320, 118, 180, 240, "SECURITY", "filters, then MVC", ACCENT, ACCENT2)
+        + box(570, 118, 180, 84, "AUTH", "JWT, OAuth 2.0")
+        + box(570, 274, 180, 84, "ENGINE", "a lock per timer")
+        + box(800, 118, 165, 84, "SQLITE", "JDBC + Flyway")
         + box(800, 274, 165, 84, "EVENT HUB", "fans out to tabs")
         + flow(214, 240, 316, 240) + label("HTTP + JWT", 265, 228, 12, TEXT2, "middle")
         + flow(504, 160, 566, 160) + flow(504, 316, 566, 316)
@@ -338,10 +339,10 @@ def architecture():
         + f'<path class="flow" d="M882 362V412H120V306" fill="none" stroke="{GREEN}" stroke-width="3"/>' + flow(120, 306, 120, 294, GREEN)
         + label("live updates: Server-Sent Events", 500, 434, 13, TEXT2, "middle")
     )
-    write("architecture.svg", 1000, 450, "Angular talks to one Go process over HTTP with a JWT cookie. Gin routes to auth and the timer engine, which use SQLite through GORM. The event hub sends live updates back. The GitHub Pages build uses the same screens with an in-browser store.", css, body)
+    write("architecture.svg", 1000, 450, "React talks to one Spring Boot process over HTTP with a JWT cookie. Requests pass the Spring Security filter chain, then reach auth and the timer engine, which use SQLite through JDBC and Flyway. The event hub sends live updates back. The GitHub Pages build uses the same screens with an in-browser store.", css, body)
 
 
-def goroutines():
+def engine():
     css = """
 .tick { animation: tick 1.2s steps(1, end) infinite; }
 @keyframes tick { 50% { opacity: .25; } }
@@ -350,23 +351,23 @@ def goroutines():
         return (panel(x, y, w, h, border) + pixel_text(title, x + w / 2, y + h / 2 - 20, 2, TEXT, "middle")
                 + label(sub, x + w / 2, y + h / 2 + 18, 13, TEXT2, "middle"))
 
-    body = box(26, 96, 170, 130, "HANDLERS", "one per request")
+    body = box(26, 96, 170, 130, "REQUESTS", "a virtual thread each")
     for i, name in enumerate(("ADA", "SAM", "RAJ")):
         y = 26 + i * 94
         body += panel(300, y, 240, 80, ACCENT, SURFACE3)
         body += pixel_text(f"TIMER {name}", 408, y + 16, 2, ACCENT2, "middle")
-        body += label("select: command, deadline, stop", 420, y + 58, 12, TEXT2, "middle")
+        body += label("one lock: a command or its alarm", 420, y + 58, 12, TEXT2, "middle")
         body += f'<rect class="tick" style="animation-delay:{i * 0.4}s" x="316" y="{y + 16}" width="14" height="14" fill="{GREEN}"/>'
         body += f'<path class="flow" d="M200 161H248V{y + 40}H284" fill="none" stroke="{ACCENT}" stroke-width="3"/>' + flow(284, y + 40, 296, y + 40)
         body += f'<path class="flow" d="M544 {y + 40}H590V161H606" fill="none" stroke="{GREEN}" stroke-width="3"/>'
     body += flow(606, 161, 618, 161, GREEN)
-    body += box(622, 96, 150, 130, "EVENT HUB", "one goroutine")
+    body += box(622, 96, 150, 130, "EVENT HUB", "a queue per tab")
     for i, name in enumerate(("LAPTOP", "PHONE", "TAB")):
         y = 44 + i * 86
         body += panel(866, y, 110, 60, LINE2) + pixel_text(name, 921, y + 23, 2, TEXT, "middle")
         body += f'<path class="flow" d="M776 161H820V{y + 30}H850" fill="none" stroke="{GREEN}" stroke-width="3"/>' + flow(850, y + 30, 862, y + 30, GREEN)
-    body += label("channels carry every message, so no timer's state is ever shared", 500, 326, 14, TEXT3, "middle")
-    write("goroutines.svg", 1000, 340, "Request handlers send commands over channels to one goroutine per timer. Each timer publishes to one event hub goroutine, which sends live updates to every open tab and device.", css, body)
+    body += label("a pause and an expiring deadline take the same lock, so they can't race", 500, 326, 14, TEXT3, "middle")
+    write("engine.svg", 1000, 340, "Requests, each on its own virtual thread, send commands to the user's timer. Each timer has its own lock, which its deadline alarm also takes. Timers publish to the event hub, which queues live updates for every open tab and device.", css, body)
 
 
 def pipeline(y, name, steps, css_prefix, period=9):
@@ -387,9 +388,9 @@ def pipeline(y, name, steps, css_prefix, period=9):
 
 
 def jwt_flow():
-    c1, b1 = pipeline(52, "SIGN IN", [("PASSWORD", "checked, never stored"), ("BCRYPT", "slow on purpose"), ("JWT + ROW", "signed, and saved"), ("COOKIE", "HttpOnly: no script sees it")], "a")
+    c1, b1 = pipeline(52, "SIGN IN", [("PASSWORD", "or Google, GitHub"), ("BCRYPT", "slow on purpose"), ("JWT + ROW", "signed, and saved"), ("COOKIE", "HttpOnly: no script sees it")], "a")
     c2, b2 = pipeline(188, "EVERY REQUEST", [("COOKIE", "sent by the browser"), ("SIGNATURE", "rejects forgeries"), ("ROW EXISTS", "so log out is instant"), ("HANDLER", "scoped to this user")], "b")
-    write("jwt.svg", 1000, 284, "Sign-in checks the password with bcrypt, then sets a signed JWT in an HttpOnly cookie and saves a session row. Every request checks the signature and that the row still exists, so signing out takes effect at once.", c1 + c2, b1 + b2)
+    write("jwt.svg", 1000, 284, "Sign-in checks the password with bcrypt, or takes the word of Google or GitHub through OAuth 2.0, then sets a signed JWT in an HttpOnly cookie and saves a session row. Every request checks the signature and that the row still exists, so signing out takes effect at once.", c1 + c2, b1 + b2)
 
 
 def docker_stages():
@@ -403,15 +404,15 @@ def docker_stages():
             s += label(line, x + w / 2, y + 58 + i * 20, 13, TEXT2, "middle")
         return s
     body = (
-        stage(26, 26, 280, 96, "1. NODE", ["builds the Angular app"]) + label("not shipped", 166, 108, 12, MUTED, "middle")
-        + stage(26, 150, 280, 96, "2. GO", ["builds one static binary"]) + label("not shipped", 166, 232, 12, MUTED, "middle")
+        stage(26, 26, 280, 96, "1. NODE", ["builds the React app"]) + label("not shipped", 166, 108, 12, MUTED, "middle")
+        + stage(26, 150, 280, 96, "2. MAVEN", ["builds the Spring Boot jar"]) + label("not shipped", 166, 232, 12, MUTED, "middle")
         + f'<path class="flow" d="M310 74H400V118H424" fill="none" stroke="{ACCENT}" stroke-width="3"/>' + flow(424, 118, 436, 118)
         + f'<path class="flow" d="M310 198H400V154H424" fill="none" stroke="{ACCENT}" stroke-width="3"/>' + flow(424, 154, 436, 154)
-        + stage(440, 40, 300, 192, "3. THE IMAGE", ["the binary and the built app", "no shell, no package manager", "runs as a non-root user", "signing key required to start"], ACCENT, ACCENT2)
+        + stage(440, 40, 300, 192, "3. THE IMAGE", ["a JRE, the jar and the app", "no shell, no package manager", "runs as a non-root user", "signing key required to start"], ACCENT, ACCENT2)
         + flow(744, 136, 790, 136)
         + stage(794, 66, 180, 140, "COMPOSE", ["one command", "database in a", "named volume"], LINE2)
     )
-    write("docker.svg", 1000, 262, "A multi-stage Docker build: Node builds the Angular app and Go builds a static binary. Only those two results go into the final image, which has no shell and runs as a non-root user.", css, body)
+    write("docker.svg", 1000, 262, "A multi-stage Docker build: Node builds the React app and Maven builds the Spring Boot jar. Only those two results go into the final image, a Java runtime with no shell that runs as a non-root user.", css, body)
 
 
 def security():
@@ -445,16 +446,17 @@ def security():
     px, py, pw, ph = 590, 34, 380, 224
     body += panel(px, py, pw, ph, LINE2)
     body += pixel_text("ON THE SERVER", px + pw / 2, py + 22, 2, ACCENT, "middle")
-    for i, text in enumerate(["Passwords hashed with bcrypt", "JWT in an HttpOnly cookie", "CSRF token on every change", "Sign-ins rate limited", "Every query scoped to its user"]):
-        y = py + 68 + i * 32
+    for i, text in enumerate(["Passwords hashed with bcrypt", "JWT in an HttpOnly cookie", "OAuth 2.0 with state and PKCE",
+                              "CSRF token on every change", "Sign-ins rate limited", "Every query scoped to its user"]):
+        y = py + 64 + i * 28
         body += f'<rect x="{px + 28}" y="{y - 12}" width="14" height="14" fill="{GREEN}"/>'
         body += label(text, px + 54, y, 16, TEXT)
-    write("security.svg", 1000, 296, "A strict page policy lets in only this site's own files. On the server, passwords are hashed with bcrypt, the JWT is in an HttpOnly cookie, changes need a CSRF token, sign-ins are rate limited and every query is scoped to its user.", css, body)
+    write("security.svg", 1000, 296, "A strict page policy lets in only this site's own files. On the server, passwords are hashed with bcrypt, the JWT is in an HttpOnly cookie, OAuth 2.0 sign-in checks state and PKCE, changes need a CSRF token, sign-ins are rate limited and every query is scoped to its user.", css, body)
 
 
 def deploy():
     # One step lights up at a time, and the last one is the live site.
-    steps = [("PUSH", "to main"), ("SCAN", "secrets, vulnerabilities"), ("TESTS", "race detector"), ("BROWSER", f"{BROWSER_TESTS} tests"), ("PAGES", "live site")]
+    steps = [("PUSH", "to main"), ("SCAN", "secrets, vulnerabilities"), ("TESTS", "unit + integration"), ("BROWSER", f"{BROWSER_TESTS} tests"), ("PAGES", "live site")]
     n, w, gap, x0, y = len(steps), 170, 24, 27, 22
     css, body = "", ""
     for i, (title, sub) in enumerate(steps):
@@ -468,11 +470,12 @@ def deploy():
         body += label(sub, x + w / 2, y + 62, 12, TEXT2, "middle")
         if i < n - 1:
             body += flow(x + w + 3, y + 42, x + w + gap - 3, y + 42)
-    write("deploy.svg", 1000, 128, "Every push to main: scan for secrets and vulnerabilities, tests under the race detector, browser tests, then publish the Pages build.", css, body)
+    write("deploy.svg", 1000, 128, "Every push to main: scan for secrets and vulnerabilities, unit and integration tests, browser tests, then publish the Pages build.", css, body)
 
 
 def stats():
-    tiles = [("1", "process to run"), (f"{KB_PER_TIMER:g} KB", "per running timer"), (f"{BINARY_MB:.0f} MB", "static binary"), (str(GO_TESTS), "Go tests"), (str(WEB_TESTS), "frontend tests")]
+    tiles = [("1", "process to run"), (f"{JAR_MB:.0f} MB", "self-contained jar"), ("2", "OAuth 2.0 providers"),
+             (str(BACKEND_TESTS), "backend tests"), (str(WEB_TESTS), "frontend tests")]
     w, gap = 186, 12
     css = "@keyframes rise { from { opacity: 0; transform: translateY(12px); } }\n"
     body = ""
@@ -481,7 +484,7 @@ def stats():
         delay = f'style="animation: rise .8s {i * 0.12}s both"'
         body += (f'<g {delay}>' + panel(x, 12, w, 104, LINE2)
                  + pixel_text(value, x + w / 2, 34, 4, ACCENT, "middle") + label(text, x + w / 2, 94, 15, TEXT2, "middle") + "</g>")
-    write("stats.svg", 1000, 128, f"One process to run, {KB_PER_TIMER:g} KB per running timer, a {BINARY_MB:.0f} MB static binary, {GO_TESTS} Go tests and {WEB_TESTS} frontend tests", css, body)
+    write("stats.svg", 1000, 128, f"One process to run, a {JAR_MB:.0f} MB self-contained jar, two OAuth 2.0 providers, {BACKEND_TESTS} backend tests and {WEB_TESTS} frontend tests", css, body)
 
 
 def single_bars(name, title, rows, height, unit_alt):
@@ -502,10 +505,6 @@ def single_bars(name, title, rows, height, unit_alt):
     write(name, 1000, height, f"{title}: " + ", ".join(f"{n} {v:g} {unit_alt}" for n, v in rows), css, body)
 
 
-def chart_memory():
-    single_bars("chart-memory.svg", "Memory for running timers, in MB (Apple M2)", MEMORY, 196, "MB")
-
-
 def chart_size():
     single_bars("chart-size.svg", "What a visitor downloads, in kB, compressed", SIZES, 244, "kB")
 
@@ -513,7 +512,7 @@ def chart_size():
 if __name__ == "__main__":
     hero()
     architecture()
-    goroutines()
+    engine()
     jwt_flow()
     docker_stages()
     focus_flow()
@@ -522,5 +521,4 @@ if __name__ == "__main__":
     deploy()
     stats()
     chart_code()
-    chart_memory()
     chart_size()

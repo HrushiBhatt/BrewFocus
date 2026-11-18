@@ -18,13 +18,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
-      - run: go run github.com/zricethezav/gitleaks/v8@v8.30.1 git --redact --no-banner --config ../.gitleaks.toml ..
-        working-directory: backend
+      # The release binary, checked against the hash from the release's checksums file.
+      # Dependabot can't update this one: take the new hash from that file when upgrading.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          asset="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$asset" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$asset"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$asset" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP" gitleaks
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - run: gitleaks git --redact --no-banner --config .gitleaks.toml .
 
+  # Unit tests (Surefire), then integration tests against the whole app on a random port (Failsafe).
   backend:
     runs-on: ubuntu-latest
     defaults:
@@ -32,14 +41,20 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
-      - run: go vet ./...
-      - run: go test -race ./... # the engine and hub are concurrent: always -race
-      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
-      - run: go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 -quiet ./...
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: ./mvnw -B verify
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: backend-test-reports
+          path: |
+            backend/target/surefire-reports
+            backend/target/failsafe-reports
+          retention-days: 7
 
   frontend:
     runs-on: ubuntu-latest
@@ -56,10 +71,11 @@ jobs:
       - run: npm ci
       # What ships to browsers. Build tools are covered by Dependabot, not this gate.
       - run: npm audit --omit=dev --audit-level=high
-      - run: npx ng test --watch=false
-      - run: npx ng build
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
 
-  # Browser tests of the whole app against the real Go server, sign-in included.
+  # Browser tests of the whole app against the real Spring Boot server, sign-in included.
   e2e:
     needs: [secrets, backend, frontend]
     runs-on: ubuntu-latest
@@ -68,10 +84,11 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
+          distribution: temurin
+          java-version: '21'
+          cache: maven
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
@@ -87,6 +104,7 @@ jobs:
           path: frontend/test-results
           retention-days: 7
 
+  # The image is scanned as it ships: the OS packages, the JRE and every jar inside the app.
   image:
     needs: [secrets, backend, frontend]
     runs-on: ubuntu-latest
@@ -154,7 +172,7 @@ jobs:
           retention-days: 7
       - name: Publish
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        working-directory: frontend/dist/brew-focus/browser
+        working-directory: frontend/dist
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -168,4 +186,4 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           owner="$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
-          bash .github/check-live-site.sh "https://${owner}.github.io${PAGES_BASE}" frontend/dist/brew-focus/browser
+          bash .github/check-live-site.sh "https://${owner}.github.io${PAGES_BASE}" frontend/dist

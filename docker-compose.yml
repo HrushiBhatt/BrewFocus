@@ -1,5 +1,5 @@
 # Runs the whole app with one command: docker compose up --build
-# Then open http://localhost:5001. Compose reads JWT_SECRET and SECURE_COOKIES from .env.
+# Then open http://localhost:5001. Compose reads JWT_SECRET, SECURE_COOKIES and the OAuth clients from .env.
 services:
   brewfocus:
     build: .
@@ -10,12 +10,22 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (openssl rand -hex 32)}
       # False so sign-in works on http://localhost. Set it to true behind HTTPS.
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
+      # OAuth 2.0 sign-in is offered only for the providers whose client is set.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}
     volumes:
       - brewfocus-data:/data # the SQLite file, kept when the container is replaced
+    # The root filesystem is read-only; the JVM, Tomcat and the SQLite driver still need a scratch
+    # folder, which lives in memory and disappears with the container.
+    tmpfs:
+      - /tmp
     restart: unless-stopped
-    # The server already shuts down cleanly on SIGTERM; this gives open timers time to save.
+    # The server shuts down gracefully on SIGTERM; this gives open requests time to finish.
     stop_grace_period: 15s
-    # A read-only filesystem and no extra privileges: only /data can be written.
+    # A read-only filesystem and no extra privileges: only /data and /tmp can be written.
     read_only: true
     security_opt:
       - no-new-privileges:true

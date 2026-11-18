@@ -23,21 +23,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - language: go
-            build-mode: autobuild
+          # Java is analyzed from source, without a build, so this job needs no JDK or Maven.
+          - language: java-kotlin
+            build-mode: none
+            source-root: backend
           - language: javascript-typescript
             build-mode: none
+            source-root: frontend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - if: matrix.language == 'go'
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
       - uses: github/codeql-action/init@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-          source-root: ${{ matrix.language == 'go' && 'backend' || 'frontend' }}
+          source-root: ${{ matrix.source-root }}
           queries: security-extended
       - uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4

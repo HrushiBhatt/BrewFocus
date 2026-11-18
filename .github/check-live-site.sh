@@ -10,7 +10,7 @@ built="$2"
 attempts="${3:-30}"
 
 # Bundle names contain a hash of their contents, so this one identifies exactly this build.
-expected="$(grep -oE 'main-[A-Za-z0-9_-]+\.js' "$built/index.html" | head -1)"
+expected="$(grep -oE 'assets/main-[A-Za-z0-9_-]+\.js' "$built/index.html" | head -1)"
 if [ -z "$expected" ]; then
   echo "::error::No main bundle found in $built/index.html"
   exit 1

@@ -4,7 +4,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 
-const root = process.env.PAGES_ROOT ?? 'dist/brew-focus/browser';
+const root = process.env.PAGES_ROOT ?? 'dist';
 const base = process.env.PAGES_BASE ?? '/BrewFocus/';
 const port = Number(process.env.PAGES_PORT ?? 5078);
 const types = {

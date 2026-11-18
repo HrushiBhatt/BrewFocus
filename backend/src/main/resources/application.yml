@@ -1,0 +1,77 @@
+# Every setting that differs between machines comes from an environment variable, so the same jar
+# and the same Docker image run anywhere and secrets stay out of the code. See .env.example.
+spring:
+  application:
+    name: brew-focus
+  main:
+    banner-mode: off
+  # Each request, event stream and timer expiry runs on a virtual thread, so thousands of open
+  # streams cost little more than their buffers.
+  threads:
+    virtual:
+      enabled: true
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+  flyway:
+    locations: classpath:db/migration
+  # The built frontend is served by WebConfig, not Spring Boot's default static folders.
+  web:
+    resources:
+      add-mappings: false
+  lifecycle:
+    timeout-per-shutdown-phase: 10s
+
+server:
+  port: ${PORT:5001} # macOS reserves :5000 for AirPlay
+  address: ${BIND_ADDRESS:0.0.0.0}
+  # Finish in-flight requests on SIGTERM. Event streams are closed first (EventHub), so this is quick.
+  shutdown: graceful
+  max-http-request-header-size: 64KB
+  tomcat:
+    # A client trickling bytes can't hold a connection open for long.
+    connection-timeout: 15s
+    keep-alive-timeout: 2m
+    max-swallow-size: 256KB
+  servlet:
+    # The only use of a servlet session is the few seconds of an OAuth 2.0 handshake, where it holds
+    # the state and PKCE verifier. Signing in itself uses the JWT cookie, not this.
+    session:
+      timeout: 10m
+      cookie:
+        name: bf_oauth
+        http-only: true
+        same-site: lax
+        secure: ${SECURE_COOKIES:false}
+  error:
+    whitelabel:
+      enabled: false
+
+brewfocus:
+  # Signs session JWTs. At least 32 bytes: openssl rand -hex 32. Required with the prod profile.
+  jwt-secret: ${JWT_SECRET:}
+  # True whenever the app is served over HTTPS: Secure cookies, the __Host- prefix and HSTS.
+  secure-cookies: ${SECURE_COOKIES:false}
+  # Addresses or CIDR ranges allowed to report a client's real IP in X-Forwarded-For.
+  trusted-proxies: ${TRUSTED_PROXIES:}
+  db-path: ${DB_PATH:brewfocus.db}
+  # The built frontend (frontend/dist). Empty means API only, for the Vite dev server.
+  static-dir: ${STATIC_DIR:}
+  # The address people use, when it differs from what the server sees (OAuth redirect URIs).
+  public-url: ${PUBLIC_URL:}
+  bcrypt-cost: 12
+  keepalive: 25s
+  oauth:
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+    github:
+      client-id: ${GITHUB_CLIENT_ID:}
+      client-secret: ${GITHUB_CLIENT_SECRET:}
+
+logging:
+  level:
+    root: info
+    # Never log SQL or its values: they can be emails or password hashes.
+    org.springframework.jdbc: warn
+    org.flywaydb: warn

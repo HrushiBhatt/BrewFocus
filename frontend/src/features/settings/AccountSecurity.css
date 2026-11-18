@@ -1,0 +1,20 @@
+/* The account part of settings: the password form, and signing out every device. */
+.account-security {
+  display: grid;
+  gap: 16px;
+
+  .pw {
+    display: grid;
+    gap: 10px;
+  }
+
+  .pw .btn,
+  .everywhere {
+    justify-self: start;
+  }
+
+  .err {
+    font-size: 0.8rem;
+    color: var(--danger);
+  }
+}

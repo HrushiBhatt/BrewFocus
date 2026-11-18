@@ -48,21 +48,38 @@ tokens.json
 backups/
 
 # ---- build output & dependencies ---------------------------------------------
+# All of it is rebuilt by `make install`, `make build` or the tests.
 node_modules/
 frontend/dist/
-frontend/.angular/
 frontend/coverage/
-frontend/out-tsc/
 frontend/test-results/
 frontend/playwright-report/
-backend/bin/
-*.test
-*.out
-*.prof
+frontend/blob-report/
+frontend/playwright/.cache/
+backend/target/
+# The wrapper script downloads Maven itself; a wrapper jar is never needed.
+**/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+hs_err_pid*.log
+replay_pid*.log
+.eslintcache
+*.tsbuildinfo
+__pycache__/
+*.pyc
 
 # ---- editor & OS noise -------------------------------------------------------------
 .DS_Store
 Thumbs.db
 *.log
+*.swp
+*~
 .idea/
+*.iml
 .vscode/
+# Eclipse and the VS Code Java extension write project files next to the pom.
+.project
+.classpath
+.settings/
+.factorypath
+bin/

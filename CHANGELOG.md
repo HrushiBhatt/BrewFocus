@@ -2,6 +2,26 @@
 
 Newest first. The git history has the full detail.
 
+## 2026-11-18: Spring Boot, React and OAuth 2.0
+
+**Changed**
+- The backend is now Spring Boot on Java 21, replacing Go. Every endpoint, JSON field and error message is the same, so nothing the app sends or receives changed.
+- The frontend is now React with JavaScript, built with Vite, replacing Angular. The screens, pixel art, stylesheets, sounds and keyboard shortcuts are unchanged.
+- Timers run on a per-timer lock with virtual threads instead of a goroutine per timer, and still resume after a restart.
+- The schema is versioned with Flyway, and queries go through Spring's JdbcClient instead of GORM.
+- `ADDR` is now `PORT` and `BIND_ADDRESS`, and the `prod` Spring profile replaces `GIN_MODE=release`.
+- An unknown path under `/api` now answers 401 until you sign in, because Spring Security authorizes before routing.
+
+**Added**
+- Sign-in with Google or GitHub over OAuth 2.0 (authorization code with PKCE). Each provider appears once its client ID and secret are set. Provider tokens are discarded, and an email that already has a password account isn't merged.
+- `DESIGN.md`, explaining the design decisions and their trade-offs.
+- Backend unit tests (JUnit, Mockito) and integration tests against the running app, including a full OAuth 2.0 sign-in against a fake provider.
+- Frontend unit tests with Vitest and Testing Library, and ESLint.
+- CodeQL now scans the Java, and Dependabot updates the Maven dependencies.
+
+**Left out on purpose**
+- Migrating the Go server's database file: the schema is new, the Go server was never hosted publicly, and the Pages site keeps its data in the browser under the same key.
+
 ## 2026-11-05: reliable GitHub Pages deploys
 
 **Fixed**

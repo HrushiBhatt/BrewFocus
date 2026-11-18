@@ -1,35 +1,37 @@
 # syntax=docker/dockerfile:1
-# One image for the whole app: the Go server serves the API and the built Angular app.
-# It's a multi-stage build, so Node and the Go compiler are used to build but never shipped.
+# One image for the whole app: Spring Boot serves the API and the built React app.
+# It's a multi-stage build, so Node, Maven and the JDK are used to build but never shipped.
 # Base images are pinned by digest, so a build can't silently pick up a replaced image.
 # Dependabot proposes new digests weekly (.github/dependabot.yml).
 
-# 1. Build the Angular frontend.
+# 1. Build the React frontend.
 FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS web
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
-RUN npx ng build
+RUN npm run build
 
-# 2. Build the Go server. The SQLite driver is pure Go, so CGO can stay off and this makes one
-# static binary with nothing else to install. -trimpath and -s -w drop build paths and debug data.
-FROM golang:1.27-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS api
+# 2. Build the Spring Boot jar. Dependencies are fetched in their own layer, so a code change
+# doesn't download them again.
+FROM eclipse-temurin:21-jdk-noble@sha256:06c1f157dacf6b68198bd9a4186dd4c34ef24e65d7bbbe2a0cf8e62571ad38c9 AS api
 WORKDIR /api
-COPY backend/go.mod backend/go.sum ./
-RUN go mod download
-COPY backend/ ./
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /brewfocus ./cmd/server && mkdir /data
+COPY backend/mvnw backend/pom.xml ./
+COPY backend/.mvn .mvn
+RUN ./mvnw -q -B dependency:go-offline
+COPY backend/src src
+RUN ./mvnw -q -B -DskipTests package && mkdir /data
 
-# 3. The runtime: only the binary and the built app, running as a non-root user. There's no shell
-# or package manager for an attacker to use. This works because the Go build above is fully static.
-FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
-COPY --from=api /brewfocus /brewfocus
+# 3. The runtime: a JRE and the jar, running as a non-root user. Distroless has no shell or package
+# manager for an attacker to use.
+FROM gcr.io/distroless/java21-debian12:nonroot@sha256:7e37784d94dccbf5ccb195c73b295f5ad00cd266512dfbac12eb9c3c28f8077d
+COPY --from=api /api/target/brew-focus.jar /app/brew-focus.jar
 COPY --from=api --chown=nonroot:nonroot /data /data
-COPY --from=web /web/dist/brew-focus/browser /app
-# Release mode refuses to start without a strong JWT_SECRET. Set SECURE_COOKIES=false only
-# to try the image over plain HTTP in a browser that won't send Secure cookies to localhost.
-ENV STATIC_DIR=/app DB_PATH=/data/brewfocus.db GIN_MODE=release SECURE_COOKIES=true
+COPY --from=web /web/dist /app/static
+# The prod profile refuses to start without a strong JWT_SECRET. Set SECURE_COOKIES=false only to
+# try the image over plain HTTP in a browser that won't send Secure cookies to localhost.
+ENV SPRING_PROFILES_ACTIVE=prod STATIC_DIR=/app/static DB_PATH=/data/brewfocus.db SECURE_COOKIES=true
 VOLUME /data
 EXPOSE 5001
-ENTRYPOINT ["/brewfocus"]
+# Size the heap from the container's memory limit, not the host's.
+ENTRYPOINT ["/usr/bin/java", "-XX:MaxRAMPercentage=75", "-jar", "/app/brew-focus.jar"]
